@@ -35,7 +35,7 @@ INTERMEDIATE_DIR = os.environ.get(
 GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://127.0.0.1:8080")
 CLIENT_API_KEY = os.environ.get("CLIENT_API_KEY", "")
 GATEWAY_ROLE = os.environ.get("RAG_GATEWAY_ROLE", "scorer")
-GATEWAY_TIMEOUT = int(os.environ.get("RAG_LLM_TIMEOUT", "300"))
+GATEWAY_TIMEOUT = int(os.environ.get("RAG_LLM_TIMEOUT", "900"))
 
 RAG_MAX_COMPANIES = os.environ.get("RAG_MAX_COMPANIES", "").strip()
 RAG_COMPANY_FILTER = os.environ.get("RAG_COMPANY_FILTER", "").strip()
@@ -1414,8 +1414,8 @@ def compute_chunk_embeddings(chunks, batch_size=None):
         show_progress_bar=True,
     )
     dt = time.perf_counter() - t0
-    print(f"[semantic] Эмбеддингов посчитано: {len(chunks)} за {dt:.1f} с "
-          f"({len(chunks) / max(dt, 1e-9):.1f} чанк/с)")
+    # print(f"[semantic] Эмбеддингов посчитано: {len(chunks)} за {dt:.1f} с "
+    #       f"({len(chunks) / max(dt, 1e-9):.1f} чанк/с)")
     return emb
 
 def _normalize_doc_text_for_dedupe(text):
@@ -1842,16 +1842,16 @@ def dedupe_similar_docs(
     )
 
     if duplicate_groups:
-        print(
-            f"    [dedupe_docs] "
-            f"групп дублей: {len(duplicate_groups)} | "
-            f"exact={exact_groups} | "
-            f"near={near_groups} | "
-            f"исключено документов: {len(dropped)}"
-        )
+        print()
+        #     f"    [dedupe_docs] "
+        #     f"групп дублей: {len(duplicate_groups)} | "
+        #     f"exact={exact_groups} | "
+        #     f"near={near_groups} | "
+        #     f"исключено документов: {len(dropped)}"
+        # )
 
-        for line in merge_log:
-            print(line)
+        # for line in merge_log:
+        #     print(line)
 
     else:
         print(
@@ -2758,8 +2758,8 @@ Evidence_Citation:
 Цитата должна подтверждать главный факт из Evidence_Type_Explanation. 
 Цитата должна быть взята только из того первоисточника, который реально открыт и прочитан. 
 Запрещено пересказывать текст своими словами вместо цитаты. 
-Цитата должна содержать не менее 15 слов. 
-Если исходный фрагмент короче 15 слов, выбери более длинный фрагмент вокруг него. 
+Цитата должна обязательно содержать от 15 до 100 слов. 
+Если цитата содержит больше 100 слов, приведи её начало из 40–80 слов и поставь "…" в конце.
 Если в исходной цитате есть запятые, замени все запятые на точку с запятой ";". 
 Если Evidence_Type не равен none, Evidence_Citation обязателен. 
 Если релевантная ссылка или документ не открылись или не прочитались из-за ошибки 404, блокировки, пустой заглушки, битого файла, таймаута или иной технической проблемы, в Evidence_Citation нужно написать ровно Failure. 
@@ -2920,8 +2920,8 @@ Evidence_Citation:
 Цитата должна подтверждать главный факт из Evidence_Type_Explanation. 
 Цитата должна быть взята только из того первоисточника, который реально открыт и прочитан. 
 Запрещено пересказывать текст своими словами вместо цитаты. 
-Цитата должна содержать не менее 15 слов. 
-Если исходный фрагмент короче 15 слов, выбери более длинный фрагмент вокруг него. 
+Цитата должна обязательно содержать от 15 до 100 слов. 
+Если цитата содержит больше 100 слов, приведи её начало из 40–80 слов и поставь "…" в конце.
 Если в исходной цитате есть запятые, замени все запятые на точку с запятой ";". 
 Если Evidence_Type не равен none, Evidence_Citation обязателен. 
 Если релевантная ссылка или документ не открылись или не прочитались из-за ошибки 404, блокировки, пустой заглушки, битого файла, таймаута или иной технической проблемы, в Evidence_Citation нужно написать ровно Failure. 
@@ -3185,8 +3185,8 @@ Evidence_Citation:
 Цитата должна подтверждать главный факт из Evidence_Type_Explanation. 
 Цитата должна быть взята только из того первоисточника, который реально открыт и прочитан. 
 Запрещено пересказывать текст своими словами вместо цитаты. 
-Цитата должна содержать не менее 15 слов. 
-Если исходный фрагмент короче 15 слов, выбери более длинный фрагмент вокруг него. 
+Цитата должна обязательно содержать от 15 до 100 слов. 
+Если цитата содержит больше 100 слов, приведи её начало из 40–80 слов и поставь "…" в конце.
 Если в исходной цитате есть запятые, замени все запятые на точку с запятой ";". 
 Если Evidence_Type не равен none, Evidence_Citation обязателен. 
 Если релевантная ссылка или документ не открылись или не прочитались из-за ошибки 404, блокировки, пустой заглушки, битого файла, таймаута или иной технической проблемы, в Evidence_Citation нужно написать ровно Failure. 
@@ -3777,7 +3777,7 @@ def load_sources_index(sources_dir=SOURCES_DIR):
 def clean_source_text(text):
     if not isinstance(text, str):
         return ""
-
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", " ", text)
     text = text.replace("\r", "\n")
     text = re.sub(r"\n{3,}", "\n\n", text)
 
@@ -3880,7 +3880,8 @@ def split_blocks_with_meta(text, max_chars=1600, overlap=220):
     raw_paras = [p.strip() for p in re.split(r"\n{2,}", body) if len(p.strip()) > 30]
     paras = []
     for p in raw_paras:
-        paras.extend(_hard_split_long_text(p, max_chars=max_chars, overlap=overlap))
+        # paras.extend(_hard_split_long_text(p, max_chars=max_chars, overlap=overlap))
+        paras.extend(_hard_split_long_text(p, max_chars=max_chars, overlap=0))
 
     chunks = []
     cur = ""
@@ -4077,12 +4078,12 @@ def retrieve_and_rerank(chunks, *, var, stage_queries=None, recall_k=36, final_k
 
 def _format_chunk_for_context(var, ch, i):
     meta = []
-    if ch.get("url"):
-        meta.append(f"URL: {ch['url']}")
+    # if ch.get("url"):
+    #     meta.append(f"URL: {ch['url']}")
     if ch.get("date"):
         meta.append(f"DATE: {ch['date']}")
-    if ch.get("title"):
-        meta.append(f"TITLE: {ch['title']}")
+    # if ch.get("title"):
+    #     meta.append(f"TITLE: {ch['title']}")
     if ch.get("domain"):
         meta.append(f"DOMAIN: {ch['domain']}")
 
@@ -4368,12 +4369,401 @@ def call_qwen(prompt, max_output_tokens=16000, temperature=0.0, role=GATEWAY_ROL
     data = response.json()
 
     text = data.get("text", "")
+    print("\n\nОтвет модели:\n", text, "\n\n")
     if not text:
         raise ValueError("Gateway вернул пустой text")
 
     model_name = data.get("model", "unknown")
+    print(f"    [gateway] finish_reason={data.get('finish_reason')} "
+          f"completion_tokens={(data.get('usage') or {}).get('completion_tokens')}", flush=True)
     return text, model_name
 
+
+# def extract_json_array(text):
+#     text = str(text).strip()
+
+#     if text.startswith("```"):
+#         text = "\n".join(
+#             line for line in text.splitlines()
+#             if not line.strip().startswith("```")
+#         ).strip()
+
+#     m = re.search(r"\[.*\]", text, flags=re.S)
+#     if not m:
+#         raise ValueError("В ответе нет JSON-массива")
+
+#     return json.loads(m.group(0))
+def _repair_invalid_json_escapes(text):
+    valid_escapes = {'"', '\\', '/', 'b', 'f', 'n', 'r', 't'}
+
+    result = []
+    i = 0
+
+    while i < len(text):
+
+        if text[i] != '\\':
+            result.append(text[i])
+            i += 1
+            continue
+
+        # Обратный слэш оказался последним символом
+        if i + 1 >= len(text):
+            result.append('\\\\')
+            i += 1
+            continue
+
+        next_char = text[i + 1]
+
+        # Стандартные валидные JSON escape
+        if next_char in valid_escapes:
+            result.append('\\')
+            result.append(next_char)
+            i += 2
+            continue
+
+        # Unicode escape: \uXXXX
+        if next_char == 'u':
+            candidate = text[i + 2:i + 6]
+
+            if (
+                len(candidate) == 4
+                and all(
+                    c in "0123456789abcdefABCDEF"
+                    for c in candidate
+                )
+            ):
+                result.append(text[i:i + 6])
+                i += 6
+                continue
+
+        # Недопустимый escape:
+        # например \' или \q
+        #
+        # Просто убираем обратный слэш:
+        # \' -> '
+        # \q -> q
+        result.append(next_char)
+        i += 2
+
+    return ''.join(result)
+
+def _repair_missing_commas(text):
+    """
+    Восстанавливает наиболее однозначные пропущенные запятые
+    в JSON:
+
+    {...}{...}  -> {...},{...}
+    [...] [...] -> [...],[...]
+
+    а также пропущенные запятые между полями объекта:
+
+    {"a": 1 "b": 2} -> {"a": 1, "b": 2}
+
+    При этом не изменяет содержимое строк.
+    """
+
+    result = []
+    i = 0
+    in_string = False
+    escaped = False
+
+    while i < len(text):
+
+        char = text[i]
+
+        # ---------------------------------------------------------
+        # Находимся внутри JSON-строки
+        # ---------------------------------------------------------
+        if in_string:
+
+            result.append(char)
+
+            if escaped:
+                escaped = False
+
+            elif char == '\\':
+                escaped = True
+
+            elif char == '"':
+                in_string = False
+
+            i += 1
+            continue
+
+        # ---------------------------------------------------------
+        # Начало JSON-строки
+        # ---------------------------------------------------------
+        if char == '"':
+            in_string = True
+            result.append(char)
+            i += 1
+            continue
+
+        # ---------------------------------------------------------
+        # Ищем ситуацию:
+        #
+        # } {
+        # ] [
+        # } "key"
+        # число "key"
+        # true "key"
+        # null "key"
+        #
+        # где между JSON-элементами отсутствует запятая.
+        # ---------------------------------------------------------
+
+        if char in '} ]'.replace(' ', ''):
+            j = i + 1
+
+            # Пропускаем whitespace
+            while j < len(text) and text[j].isspace():
+                j += 1
+
+            if j < len(text):
+
+                next_char = text[j]
+
+                # -------------------------------------------------
+                # Случай:
+                #
+                # {...}{...}
+                # {...} {...}
+                #
+                # или
+                #
+                # [...][...]
+                # -------------------------------------------------
+                if (
+                    (char == '}' and next_char == '{')
+                    or
+                    (char == ']' and next_char == '[')
+                ):
+                    result.append(char)
+                    result.append(',')
+
+                    i += 1
+                    continue
+
+                # -------------------------------------------------
+                # Случай:
+                #
+                # {"a": 1 "b": 2}
+                #
+                # После значения идёт новая строка-ключ.
+                #
+                # Здесь мы проверяем, что следующий элемент
+                # действительно выглядит как JSON-ключ.
+                # -------------------------------------------------
+                if next_char == '"':
+
+                    # Ищем конец строки
+                    k = j + 1
+                    escaped_inner = False
+
+                    while k < len(text):
+
+                        if escaped_inner:
+                            escaped_inner = False
+
+                        elif text[k] == '\\':
+                            escaped_inner = True
+
+                        elif text[k] == '"':
+                            break
+
+                        k += 1
+
+                    # После строки должен идти :
+                    if (
+                        k < len(text)
+                        and k + 1 < len(text)
+                        and text[k + 1] == ':'
+                    ):
+                        result.append(char)
+                        result.append(',')
+
+                        i += 1
+                        continue
+
+        # ---------------------------------------------------------
+        # Обычный символ
+        # ---------------------------------------------------------
+        result.append(char)
+        i += 1
+
+    return ''.join(result)
+
+def _repair_trailing_commas(text):
+    """
+    Удаляет лишние запятые перед } и ].
+
+    Работает только вне JSON-строк.
+    """
+
+    result = []
+    i = 0
+    in_string = False
+    escaped = False
+
+    while i < len(text):
+
+        char = text[i]
+
+        # Внутри строки ничего не меняем
+        if in_string:
+
+            result.append(char)
+
+            if escaped:
+                escaped = False
+
+            elif char == '\\':
+                escaped = True
+
+            elif char == '"':
+                in_string = False
+
+            i += 1
+            continue
+
+        # Начало строки
+        if char == '"':
+            in_string = True
+            result.append(char)
+            i += 1
+            continue
+
+        # Ищем:
+        #
+        # , }
+        # , ]
+        #
+        # с любым количеством пробелов между ними.
+        if char == ',':
+
+            j = i + 1
+
+            while j < len(text) and text[j].isspace():
+                j += 1
+
+            if j < len(text) and text[j] in '}]':
+                # Запятую просто пропускаем
+                i += 1
+                continue
+
+        result.append(char)
+        i += 1
+
+    return ''.join(result)
+
+def _repair_unescaped_quotes(text):
+    """
+    Исправляет кавычки внутри JSON-строк, которые модель
+    оставила без обратного слэша.
+
+    Например:
+
+        "Сервис «Отелло"/ сервис бронирования"
+
+    превращается в:
+
+        "Сервис «Отелло\"/ сервис бронирования"
+
+    При этом настоящая закрывающая кавычка JSON-строки
+    сохраняется.
+    """
+
+    result = []
+    i = 0
+    in_string = False
+    escaped = False
+
+    while i < len(text):
+
+        char = text[i]
+
+        # ---------------------------------------------------------
+        # Мы внутри JSON-строки
+        # ---------------------------------------------------------
+        if in_string:
+
+            # Уже обработанный escape
+            if escaped:
+                result.append(char)
+                escaped = False
+                i += 1
+                continue
+
+            # Начало escape-последовательности
+            if char == '\\':
+                result.append(char)
+                escaped = True
+                i += 1
+                continue
+
+            # Кавычка внутри строки
+            if char == '"':
+
+                # Смотрим, что идёт после кавычки
+                j = i + 1
+
+                while j < len(text) and text[j].isspace():
+                    j += 1
+
+                # Если после кавычки находится JSON-разделитель,
+                # это настоящая закрывающая кавычка.
+                #
+                # Например:
+                #
+                # "text",
+                # "text"}
+                # "text"]
+                # "key":
+                #
+                # Также учитываем следующую кавычку:
+                #
+                # "text" "next"
+                #
+                # Это позволяет потом отдельно восстановить
+                # пропущенную запятую.
+                if (
+                    j >= len(text)
+                    or text[j] in ',}]:"'
+                ):
+                    result.append('"')
+                    in_string = False
+                    i += 1
+                    continue
+
+                # Иначе кавычка находится внутри текста.
+                #
+                # Например:
+                #
+                # "Сервис «Отелло"/ сервис"
+                #
+                # Поэтому экранируем её.
+                result.append('\\"')
+                i += 1
+                continue
+
+            result.append(char)
+            i += 1
+            continue
+
+        # ---------------------------------------------------------
+        # Мы вне JSON-строки
+        # ---------------------------------------------------------
+
+        if char == '"':
+            in_string = True
+            result.append(char)
+            i += 1
+            continue
+
+        result.append(char)
+        i += 1
+
+    return ''.join(result)
 
 def extract_json_array(text):
     text = str(text).strip()
@@ -4385,10 +4775,175 @@ def extract_json_array(text):
         ).strip()
 
     m = re.search(r"\[.*\]", text, flags=re.S)
+
     if not m:
         raise ValueError("В ответе нет JSON-массива")
 
-    return json.loads(m.group(0))
+    json_text = m.group(0)
+
+    # ==========================================================
+    # 1. Сначала пробуем обычный JSON
+    # ==========================================================
+
+    try:
+        return json.loads(json_text)
+
+    except json.JSONDecodeError as e:
+
+        print(
+            f"    [JSON WARNING] Некорректный JSON от модели: "
+            f"{e.msg}, line={e.lineno}, col={e.colno}, pos={e.pos}",
+            flush=True
+        )
+
+        start = max(0, e.pos - 300)
+        end = min(len(json_text), e.pos + 300)
+
+        print(
+            "    [JSON WARNING] Фрагмент вокруг ошибки:",
+            flush=True
+        )
+
+        print(
+            json_text[start:end],
+            flush=True
+        )
+
+    # ==========================================================
+    # 2. Исправляем некорректные escape-последовательности
+    # ==========================================================
+
+    # ==========================================================
+# 2. Исправляем некорректные escape-последовательности
+# ==========================================================
+
+    repaired_json = _repair_invalid_json_escapes(json_text)
+
+    # ==========================================================
+    # 3. Исправляем неэкранированные кавычки внутри строк
+    # ==========================================================
+
+    repaired_json = _repair_unescaped_quotes(repaired_json)
+
+    # ==========================================================
+    # 4. Пробуем JSON после исправления escape + кавычек
+    # ==========================================================
+
+    try:
+        result = json.loads(repaired_json)
+
+        print(
+            "    [JSON WARNING] Некорректные escape-последовательности "
+            "и кавычки автоматически исправлены.",
+            flush=True
+        )
+
+        return result
+
+    except json.JSONDecodeError:
+        pass
+
+    # ==========================================================
+    # 5. Восстанавливаем пропущенные запятые
+    # ==========================================================
+
+    repaired_json = _repair_missing_commas(repaired_json)
+
+    # ==========================================================
+    # 6. Убираем лишние trailing commas
+    # ==========================================================
+
+    repaired_json = _repair_trailing_commas(repaired_json)
+
+    # ==========================================================
+    # 7. Последняя попытка полноценного JSON
+    # ==========================================================
+
+    try:
+        result = json.loads(repaired_json)
+
+        print(
+            "    [JSON WARNING] JSON автоматически восстановлен "
+            "после исправления структуры.",
+            flush=True
+        )
+
+        return result
+
+    except json.JSONDecodeError as e2:
+
+        print(
+            f"    [JSON ERROR] Не удалось восстановить JSON: "
+            f"{e2.msg}, line={e2.lineno}, col={e2.colno}, pos={e2.pos}",
+            flush=True
+        )
+
+        start = max(0, e2.pos - 300)
+        end = min(len(repaired_json), e2.pos + 300)
+
+        print(
+            "    [JSON ERROR] Фрагмент после восстановления:",
+            flush=True
+        )
+
+        print(
+            repaired_json[start:end],
+            flush=True
+        )
+
+        raise
+
+    # ==========================================================
+    # 4. Восстанавливаем пропущенные запятые
+    # ==========================================================
+
+    repaired_json = _repair_missing_commas(repaired_json)
+
+    # ==========================================================
+    # 5. Убираем лишние trailing commas
+    # ==========================================================
+
+    repaired_json = _repair_trailing_commas(repaired_json)
+
+    # ==========================================================
+    # 6. Ещё одна попытка полноценного JSON
+    # ==========================================================
+
+    try:
+        result = json.loads(repaired_json)
+
+        print(
+            "    [JSON WARNING] JSON автоматически восстановлен "
+            "после исправления структуры.",
+            flush=True
+        )
+
+        return result
+
+    except json.JSONDecodeError as e2:
+
+        print(
+            f"    [JSON ERROR] Не удалось восстановить JSON: "
+            f"{e2.msg}, line={e2.lineno}, col={e2.colno}, pos={e2.pos}",
+            flush=True
+        )
+
+        # Показываем уже восстановленный фрагмент
+        start = max(0, e2.pos - 300)
+        end = min(len(repaired_json), e2.pos + 300)
+
+        print(
+            "    [JSON ERROR] Фрагмент после восстановления:",
+            flush=True
+        )
+
+        print(
+            repaired_json[start:end],
+            flush=True
+        )
+
+        raise
+# №№№
 
 
 def normalize_output_row(obj, *, company_id, domain, inn, model):
@@ -4591,6 +5146,10 @@ Freshness:
 Freshness=1, если Evidence_Date относится к 2023, 2024, 2025 или более поздним годом.
 Freshness=0, если Evidence_Date="none" или дата раньше 2023-01-01.
 Freshness может принимать только значения 1 или 0.
+
+ОГРАНИЧЕНИЕ Evidence_Citation:
+Цитата должна обязательно содержать от 15 до 100 слов. 
+Если цитата содержит больше 100 слов, приведи её начало из 40–80 слов и поставь "…" в конце.
 
 Открытый источник НЕ считается прямо релевантным, если он:
 - содержит только общие слова об ESG, устойчивом развитии, ответственности, качестве, безопасности, заботе о людях, прозрачности или развитии;
@@ -4808,7 +5367,7 @@ def run_scorer_full(
     )
 
     print(f"    {role_name} Stage 1: prompt={len(prompt1):,} chars")
-    raw_stage1, model_stage1 = call_qwen(prompt1, 16000, 0.0, role_name)
+    raw_stage1, model_stage1 = call_qwen(prompt1, 20000, 0.0, role_name)
     (Path(INTERMEDIATE_DIR) / f"{safe_company}_{role_name}_stage1_raw.txt").write_text(
         raw_stage1, encoding="utf-8"
     )
@@ -4843,7 +5402,7 @@ def run_scorer_full(
     )
 
     print(f"    {role_name} Stage 2: prompt={len(prompt2):,} chars")
-    raw_stage2, model_stage2 = call_qwen(prompt2, 16000, 0.0, role_name)
+    raw_stage2, model_stage2 = call_qwen(prompt2, 20000, 0.0, role_name)
     (Path(INTERMEDIATE_DIR) / f"{safe_company}_{role_name}_stage2_raw.txt").write_text(
         raw_stage2, encoding="utf-8"
     )
@@ -7714,7 +8273,8 @@ if __name__ == "__main__":
             final_k=int(
                 os.environ.get(
                     "RAG_FINAL_K",
-                    "20"
+                    # "20"
+                    "19"
                 )
             ),
             top_k=int(
