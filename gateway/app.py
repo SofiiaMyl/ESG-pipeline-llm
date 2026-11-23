@@ -20,7 +20,9 @@ S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "https://storage.yandexcloud.net")
 
 llm_client = OpenAI(
     api_key=YC_AI_API_KEY,
-    base_url="https://llm.api.cloud.yandex.net/v1"
+    base_url="https://llm.api.cloud.yandex.net/v1",
+    timeout=1800,
+    max_retries=0,   # повторами управляет пайплайн, не SDK
 )
 
 s3 = boto3.client(
@@ -53,6 +55,7 @@ class LlmReq(BaseModel):
     role: str
     prompt: str
     temperature: float = 0.2
+    max_output_tokens: int = 16000
 
 
 class LogReq(BaseModel):
@@ -89,7 +92,8 @@ def generate(req: LlmReq, x_api_key: str = Header(default="")):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": req.prompt}
             ],
-            temperature=req.temperature
+            temperature=req.temperature,
+            max_tokens=req.max_output_tokens
         )
 
         return {
@@ -118,7 +122,8 @@ def generate(req: LlmReq, x_api_key: str = Header(default="")):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": req.prompt}
             ],
-            temperature=req.temperature
+            temperature=req.temperature,
+            max_tokens=req.max_output_tokens
         )
 
         return {
